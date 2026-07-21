@@ -8,7 +8,8 @@ struct PowerPopover: View {
         VStack(alignment: .leading, spacing: 14) {
             header
             Divider()
-            chargingMetrics
+            powerFlowSection
+            Divider()
             information
             Divider()
             appPowerSection
@@ -25,7 +26,7 @@ struct PowerPopover: View {
         HStack(spacing: 12) {
             Image(systemName: monitor.snapshot.menuBarSymbol)
                 .font(.system(size: 24, weight: .semibold))
-                .foregroundStyle(monitor.snapshot.isCharging ? .green : .primary)
+                .foregroundStyle(statusColor)
                 .frame(width: 32)
 
             VStack(alignment: .leading, spacing: 2) {
@@ -40,20 +41,111 @@ struct PowerPopover: View {
         }
     }
 
-    @ViewBuilder
-    private var chargingMetrics: some View {
+    private var statusColor: Color {
         if monitor.snapshot.isCharging {
+            return .green
+        }
+        if monitor.snapshot.isBatteryAssisting {
+            return .orange
+        }
+        return .primary
+    }
+
+    private var powerFlowSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Power flow")
+                .font(.headline)
+
             HStack(spacing: 10) {
                 MetricView(
-                    title: "Battery intake",
-                    value: PowerFormatting.watts(monitor.snapshot.chargingWatts),
-                    symbol: "bolt.fill"
+                    title: "Actual input",
+                    value: PowerFormatting.watts(monitor.snapshot.inputWatts),
+                    symbol: "powerplug.fill"
                 )
                 MetricView(
-                    title: "Full in",
-                    value: PowerFormatting.duration(minutes: monitor.snapshot.minutesToFull),
-                    symbol: "clock"
+                    title: "Mac usage",
+                    value: PowerFormatting.watts(monitor.snapshot.macPowerWatts),
+                    symbol: "laptopcomputer"
                 )
+            }
+
+            InformationRow(
+                symbol: batteryFlowSymbol,
+                label: batteryFlowLabel,
+                value: PowerFormatting.magnitudeWatts(monitor.snapshot.batteryPowerWatts)
+            )
+
+            if monitor.snapshot.isCharging {
+                InformationRow(
+                    symbol: "clock",
+                    label: "Full in",
+                    value: PowerFormatting.duration(minutes: monitor.snapshot.minutesToFull)
+                )
+            }
+
+            externalDevices
+
+            if !monitor.snapshot.hasDetailedPowerTelemetry {
+                Text("Detailed power telemetry is unavailable on this Mac; battery power is estimated.")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+            }
+        }
+    }
+
+    private var batteryFlowLabel: String {
+        if monitor.snapshot.isCharging {
+            return "Battery charging"
+        }
+        if monitor.snapshot.isBatteryAssisting {
+            return "Battery assisting"
+        }
+        return "Battery flow"
+    }
+
+    private var batteryFlowSymbol: String {
+        if monitor.snapshot.isCharging {
+            return "arrow.down.to.line"
+        }
+        if monitor.snapshot.isBatteryAssisting {
+            return "arrow.up.from.line"
+        }
+        return "minus"
+    }
+
+    private var externalDevices: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text("External devices")
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Text(PowerFormatting.watts(monitor.snapshot.externalPowerWatts))
+                    .monospacedDigit()
+            }
+
+            if monitor.snapshot.externalDevices.isEmpty {
+                Text("No powered USB-C devices detected")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+            } else {
+                ForEach(monitor.snapshot.externalDevices) { device in
+                    HStack(spacing: 8) {
+                        Image(systemName: "cable.connector")
+                            .foregroundStyle(.secondary)
+                            .frame(width: 18)
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(device.name)
+                                .lineLimit(1)
+                            Text(device.portLabel)
+                                .font(.caption2)
+                                .foregroundStyle(.tertiary)
+                        }
+                        Spacer()
+                        Text(PowerFormatting.watts(device.watts))
+                            .monospacedDigit()
+                    }
+                    .font(.subheadline)
+                }
             }
         }
     }

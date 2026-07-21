@@ -1,10 +1,23 @@
 import Foundation
 
+struct ExternalPowerDevice: Identifiable, Sendable, Equatable {
+    let portNumber: Int
+    let name: String
+    let watts: Double
+
+    var id: Int { portNumber }
+    var portLabel: String { "USB-C \(portNumber)" }
+}
+
 struct PowerSnapshot: Sendable, Equatable {
     let percentage: Int
     let isCharging: Bool
     let isConnected: Bool
-    let chargingWatts: Double?
+    let batteryPowerWatts: Double?
+    let inputWatts: Double?
+    let macPowerWatts: Double?
+    let externalDevices: [ExternalPowerDevice]
+    let hasDetailedPowerTelemetry: Bool
     let minutesToFull: Int?
     let powerSource: String
     let adapterRatingWatts: Int?
@@ -15,7 +28,11 @@ struct PowerSnapshot: Sendable, Equatable {
         percentage: 0,
         isCharging: false,
         isConnected: false,
-        chargingWatts: nil,
+        batteryPowerWatts: nil,
+        inputWatts: nil,
+        macPowerWatts: nil,
+        externalDevices: [],
+        hasDetailedPowerTelemetry: false,
         minutesToFull: nil,
         powerSource: "Checking…",
         adapterRatingWatts: nil,
@@ -27,6 +44,9 @@ struct PowerSnapshot: Sendable, Equatable {
         if isCharging {
             return "Charging"
         }
+        if isBatteryAssisting {
+            return "Battery assisting"
+        }
         if isConnected {
             return "Plugged in"
         }
@@ -37,6 +57,9 @@ struct PowerSnapshot: Sendable, Equatable {
         if isCharging {
             return "bolt.fill"
         }
+        if isBatteryAssisting {
+            return "battery.50percent"
+        }
         if isConnected {
             return "powerplug.fill"
         }
@@ -46,12 +69,31 @@ struct PowerSnapshot: Sendable, Equatable {
     var accessibilitySummary: String {
         "Battery \(percentage) percent, \(statusText.lowercased())"
     }
+
+    var isBatteryAssisting: Bool {
+        guard isConnected, let batteryPowerWatts else { return false }
+        return batteryPowerWatts < -0.1
+    }
+
+    var chargingWatts: Double? {
+        guard let batteryPowerWatts, batteryPowerWatts > 0.1 else { return nil }
+        return batteryPowerWatts
+    }
+
+    var externalPowerWatts: Double {
+        externalDevices.reduce(0) { $0 + $1.watts }
+    }
 }
 
 enum PowerFormatting {
     static func watts(_ value: Double?) -> String {
         guard let value else { return "—" }
         return String(format: "%.1f W", value)
+    }
+
+    static func magnitudeWatts(_ value: Double?) -> String {
+        guard let value else { return "—" }
+        return watts(abs(value))
     }
 
     static func duration(minutes: Int?) -> String {

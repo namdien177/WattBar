@@ -1,6 +1,6 @@
 # WattBar
 
-A small native macOS menu-bar app showing battery percentage, charging state, battery intake wattage, estimated time to full charge, power source, cycle count, and the three most active apps.
+A small native macOS menu-bar app showing battery percentage, measured power flow, charging state, estimated time to full charge, power source, powered USB-C devices, cycle count, and the three most active apps.
 
 ## Requirements
 
@@ -21,5 +21,7 @@ The app is local-only and requires no permissions. To launch it automatically, a
 
 - Battery data comes directly from IOKit; no shell process is used for routine battery updates.
 - The menu-bar summary refreshes every 30 seconds with a five-second timer tolerance.
-- App activity is sampled only while the popover is open, once every 30 seconds.
+- Device names and app activity are sampled only while the popover is open, once every 30 seconds.
+- On supported Apple Silicon Macs, WattBar reads actual adapter input, signed battery flow, Mac consumption, and per-port USB-C output from power telemetry.
+- Undocumented detailed telemetry may be unavailable on other hardware or future macOS versions; WattBar falls back to battery voltage and current.
 - Per-app wattage is not available through a public macOS API, so app activity is ranked using aggregate CPU usage as a transparent power proxy.
