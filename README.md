@@ -7,7 +7,7 @@ A small native macOS menu-bar app showing battery percentage, measured power flo
 Run this single command:
 
 ```zsh
-curl --proto '=https' --tlsv1.2 -fsSL https://raw.githubusercontent.com/namdien177/WattBar/main/Scripts/install.sh | zsh
+curl --proto '=https' --tlsv1.2 -fsSL https://github.com/namdien177/WattBar/raw/refs/heads/main/Scripts/install.sh | zsh
 ```
 
 The installer always downloads the latest `main`, builds a release app, installs it to `~/Applications/WattBar.app`, restarts WattBar, and removes the downloaded source and Swift build cache afterward. It verifies macOS 14+, Swift 6+, and code signing. If Xcode Command Line Tools are missing, it opens Apple's installer and tells you when to rerun the command.
