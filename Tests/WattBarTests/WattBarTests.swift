@@ -2,21 +2,84 @@ import XCTest
 @testable import WattBar
 
 final class WattBarTests: XCTestCase {
-    func testChargingWattCalculation() {
-        let watts = PowerReader.calculateChargingWatts(
-            isCharging: true,
+    func testBatteryPowerCalculation() {
+        let watts = PowerReader.calculateBatteryPower(
             voltageMillivolts: 11_757,
             currentMilliamps: 1_983
         )
         XCTAssertEqual(watts ?? 0, 23.314_131, accuracy: 0.000_001)
     }
 
-    func testNoWattValueWhenNotCharging() {
-        XCTAssertNil(PowerReader.calculateChargingWatts(
-            isCharging: false,
+    func testBatteryPowerPreservesDischargeDirection() {
+        let watts = PowerReader.calculateBatteryPower(
             voltageMillivolts: 11_500,
             currentMilliamps: -1_800
-        ))
+        )
+        XCTAssertEqual(watts ?? 0, -20.7, accuracy: 0.000_001)
+    }
+
+    func testDetailedTelemetryBuildsMeasuredPowerBalance() {
+        let snapshot = PowerReader.makeSnapshot(
+            registry: [
+                "ExternalConnected": true,
+                "IsCharging": true,
+                "Voltage": 12_731,
+                "InstantAmperage": -1_837,
+                "CycleCount": 124,
+                "PowerTelemetryData": [
+                    "SystemPowerIn": 42_604,
+                    "BatteryPower": "-15618",
+                    "SystemLoad": 58_222
+                ],
+                "PowerOutDetails": [
+                    ["PortIndex": 1, "Watts": 1_870],
+                    ["PortIndex": 2, "Watts": 14_882]
+                ]
+            ],
+            powerSource: [
+                "Current Capacity": 95,
+                "Max Capacity": 100,
+                "Is Charging": true,
+                "Power Source State": "AC Power",
+                "Time to Full Charge": 30
+            ],
+            adapter: ["Watts": 45, "Description": "pd charger"],
+            portMetadata: PortMetadata(
+                inputPortName: "MagSafe 3",
+                deviceNamesByPort: [1: "Newdox", 2: "iPad"]
+            )
+        )
+
+        XCTAssertFalse(snapshot.isCharging)
+        XCTAssertTrue(snapshot.isBatteryAssisting)
+        XCTAssertNil(snapshot.minutesToFull)
+        XCTAssertEqual(snapshot.inputWatts ?? 0, 42.604, accuracy: 0.001)
+        XCTAssertEqual(snapshot.batteryPowerWatts ?? 0, -15.618, accuracy: 0.001)
+        XCTAssertEqual(snapshot.externalPowerWatts, 16.752, accuracy: 0.001)
+        XCTAssertEqual(snapshot.macPowerWatts ?? 0, 41.470, accuracy: 0.001)
+        XCTAssertEqual(snapshot.powerSource, "45 W MagSafe 3")
+        XCTAssertEqual(snapshot.externalDevices.map(\.name), ["Newdox", "iPad"])
+    }
+
+    func testPositiveBatteryPowerMeansCharging() {
+        let snapshot = PowerReader.makeSnapshot(
+            registry: [
+                "ExternalConnected": true,
+                "PowerTelemetryData": ["BatteryPower": 12_000]
+            ],
+            powerSource: [
+                "Current Capacity": 60,
+                "Max Capacity": 100,
+                "Power Source State": "AC Power",
+                "Time to Full Charge": 90
+            ],
+            adapter: nil,
+            portMetadata: .empty
+        )
+
+        XCTAssertTrue(snapshot.isCharging)
+        XCTAssertEqual(snapshot.chargingWatts, 12)
+        XCTAssertEqual(snapshot.minutesToFull, 90)
     }
 
     func testDurationFormatting() {

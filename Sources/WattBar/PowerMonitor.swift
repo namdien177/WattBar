@@ -9,6 +9,8 @@ final class PowerMonitor: ObservableObject {
     private var summaryTimer: Timer?
     private var detailTimer: Timer?
     private var detailTick = 0
+    private var portMetadata = PortMetadata.empty
+    private var isScanningPorts = false
 
     init() {
         refreshBattery()
@@ -23,6 +25,7 @@ final class PowerMonitor: ObservableObject {
     func beginDetailUpdates() {
         guard detailTimer == nil else { return }
         refreshBattery()
+        refreshPortMetadata()
         refreshTopApps()
 
         detailTick = 0
@@ -32,6 +35,7 @@ final class PowerMonitor: ObservableObject {
                 self.detailTick += 1
                 self.refreshBattery()
                 if self.detailTick.isMultiple(of: 3) {
+                    self.refreshPortMetadata()
                     self.refreshTopApps()
                 }
             }
@@ -46,11 +50,26 @@ final class PowerMonitor: ObservableObject {
 
     func refreshAll() {
         refreshBattery()
+        refreshPortMetadata()
         refreshTopApps()
     }
 
     private func refreshBattery() {
-        snapshot = PowerReader.read()
+        snapshot = PowerReader.read(portMetadata: portMetadata)
+    }
+
+    private func refreshPortMetadata() {
+        guard !isScanningPorts else { return }
+        isScanningPorts = true
+
+        Task {
+            let metadata = await Task.detached(priority: .utility) {
+                ExternalDeviceReader.read()
+            }.value
+            portMetadata = metadata
+            isScanningPorts = false
+            refreshBattery()
+        }
     }
 
     private func refreshTopApps() {
