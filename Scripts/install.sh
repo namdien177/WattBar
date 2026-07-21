@@ -64,35 +64,21 @@ ensure_developer_tools() {
     (( swift_major >= 6 )) || fail "Swift 6 or newer is required. Update Xcode or Command Line Tools."
 
     command -v codesign >/dev/null 2>&1 || fail "codesign is unavailable. Reinstall Xcode Command Line Tools."
-    command -v gh >/dev/null 2>&1 || fail "GitHub CLI is required because this repository is private."
-    gh auth status >/dev/null 2>&1 || fail "authenticate GitHub CLI first with: gh auth login"
 }
 
 download_latest_source() {
     local archive_path="$installer_workspace/wattbar.tar.gz"
     local source_directory="$installer_workspace/source"
-    local github_token
-    local curl_config="$installer_workspace/github-curl.conf"
-
-    github_token="$(gh auth token 2>/dev/null)"
-    [[ -n "$github_token" ]] || fail "could not read the GitHub authentication token."
-
-    umask 077
-    {
-        print -r -- 'fail'
-        print -r -- 'location'
-        print -r -- 'silent'
-        print -r -- 'show-error'
-        print -r -- "header = \"Authorization: Bearer ${github_token}\""
-        print -r -- 'header = "Accept: application/vnd.github+json"'
-        print -r -- 'header = "X-GitHub-Api-Version: 2022-11-28"'
-    } > "$curl_config"
-    unset github_token
 
     print -r -- "Downloading ${repository}@${source_ref}…" >&2
     /usr/bin/curl \
-        --config "$curl_config" \
-        "https://api.github.com/repos/${repository}/tarball/${source_ref}" \
+        --proto '=https' \
+        --tlsv1.2 \
+        --fail \
+        --location \
+        --silent \
+        --show-error \
+        "https://github.com/${repository}/archive/refs/heads/${source_ref}.tar.gz" \
         --output "$archive_path"
 
     /bin/mkdir -p "$source_directory"

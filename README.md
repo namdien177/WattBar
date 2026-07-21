@@ -4,13 +4,13 @@ A small native macOS menu-bar app showing battery percentage, measured power flo
 
 ## Install or update
 
-Because this is a private repository, first make sure [GitHub CLI](https://cli.github.com/) is authenticated with `gh auth login`. Then run this single command:
+Run this single command:
 
 ```zsh
-curl --proto '=https' --tlsv1.2 -fsSL --config <(printf 'header = "Authorization: Bearer %s"\nheader = "Accept: application/vnd.github.raw+json"\n' "$(gh auth token)") https://api.github.com/repos/namdien177/WattBar/contents/Scripts/install.sh | zsh
+curl --proto '=https' --tlsv1.2 -fsSL https://raw.githubusercontent.com/namdien177/WattBar/main/Scripts/install.sh | zsh
 ```
 
-The installer always downloads the latest `main`, builds a release app, installs it to `~/Applications/WattBar.app`, restarts WattBar, and removes the downloaded source and Swift build cache afterward. It verifies macOS 14+, Swift 6+, code signing, and GitHub authentication. If Xcode Command Line Tools are missing, it opens Apple's installer and tells you when to rerun the command.
+The installer always downloads the latest `main`, builds a release app, installs it to `~/Applications/WattBar.app`, restarts WattBar, and removes the downloaded source and Swift build cache afterward. It verifies macOS 14+, Swift 6+, and code signing. If Xcode Command Line Tools are missing, it opens Apple's installer and tells you when to rerun the command.
 
 Swift Package Manager handles dependencies automatically; WattBar currently has no third-party packages.
 
