@@ -5,64 +5,89 @@ struct PowerPopover: View {
     @ObservedObject var monitor: PowerMonitor
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: 10) {
             header
-            Divider()
-            powerFlowSection
-            Divider()
-            information
-            Divider()
-            appPowerSection
-            Divider()
+            powerFlowModule
+            informationModule
+            appActivityModule
             footer
         }
-        .padding(16)
+        .padding(12)
         .frame(width: 340)
         .onAppear { monitor.beginDetailUpdates() }
         .onDisappear { monitor.endDetailUpdates() }
     }
 
-    private var header: some View {
-        HStack(spacing: 12) {
-            Image(systemName: monitor.snapshot.menuBarSymbol)
-                .font(.system(size: 24, weight: .semibold))
-                .foregroundStyle(statusColor)
-                .frame(width: 32)
+    // MARK: Header
 
-            VStack(alignment: .leading, spacing: 2) {
-                Text("\(monitor.snapshot.percentage)%")
-                    .font(.title2.weight(.semibold))
-                    .monospacedDigit()
-                Text(monitor.snapshot.statusText)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+    private var header: some View {
+        GlassModule {
+            HStack(alignment: .center, spacing: 12) {
+                Image(systemName: monitor.snapshot.menuBarSymbol)
+                    .font(.system(size: 30, weight: .regular))
+                    .symbolRenderingMode(.hierarchical)
+                    .foregroundStyle(statusColor)
+                    .frame(width: 44)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                        Text("\(monitor.snapshot.percentage)%")
+                            .font(.system(size: 28, weight: .semibold, design: .rounded))
+                            .monospacedDigit()
+                        Text(monitor.snapshot.statusText)
+                            .font(.subheadline.weight(.medium))
+                            .foregroundStyle(statusColor)
+                    }
+                    Text(headerDetail)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+                Spacer(minLength: 0)
             }
-            Spacer()
+
+            LevelBar(
+                fraction: Double(monitor.snapshot.percentage) / 100,
+                tint: statusColor
+            )
         }
     }
 
+    private var headerDetail: String {
+        // On battery the useful number is time left.
+        if !monitor.snapshot.isConnected {
+            return PowerNotificationText.batteryTimeLeft(monitor.snapshot)
+        }
+        return PowerNotificationText.connectedDetail(monitor.snapshot)
+    }
+
     private var statusColor: Color {
+        // Charging reads as green.
         if monitor.snapshot.isCharging {
             return .green
         }
+        // Plugged in but the battery is still supplying power.
         if monitor.snapshot.isBatteryAssisting {
             return .orange
+        }
+        // Low on battery.
+        if !monitor.snapshot.isConnected && monitor.snapshot.percentage <= 20 {
+            return .red
         }
         return .primary
     }
 
-    private var powerFlowSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Power flow")
-                .font(.headline)
+    // MARK: Power flow
 
-            HStack(spacing: 10) {
-                MetricView(
-                    title: "Actual input",
+    private var powerFlowModule: some View {
+        GlassModule(title: "Power flow") {
+            HStack(spacing: 8) {
+                MetricTile(
+                    title: "Input",
                     value: PowerFormatting.watts(monitor.snapshot.inputWatts),
-                    symbol: "powerplug.fill"
+                    symbol: "powerplug.portrait.fill"
                 )
-                MetricView(
+                MetricTile(
                     title: "Mac usage",
                     value: PowerFormatting.watts(monitor.snapshot.macPowerWatts),
                     symbol: "laptopcomputer"
@@ -74,14 +99,6 @@ struct PowerPopover: View {
                 label: batteryFlowLabel,
                 value: PowerFormatting.magnitudeWatts(monitor.snapshot.batteryPowerWatts)
             )
-
-            if monitor.snapshot.isCharging {
-                InformationRow(
-                    symbol: "clock",
-                    label: "Full in",
-                    value: PowerFormatting.duration(minutes: monitor.snapshot.minutesToFull)
-                )
-            }
 
             externalDevices
 
@@ -114,46 +131,32 @@ struct PowerPopover: View {
     }
 
     private var externalDevices: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text("External devices")
-                    .foregroundStyle(.secondary)
-                Spacer()
-                Text(PowerFormatting.watts(monitor.snapshot.externalPowerWatts))
-                    .monospacedDigit()
-            }
+        VStack(alignment: .leading, spacing: 6) {
+            InformationRow(
+                symbol: "cable.connector",
+                label: "External devices",
+                value: PowerFormatting.watts(monitor.snapshot.externalPowerWatts)
+            )
 
             if monitor.snapshot.externalDevices.isEmpty {
                 Text("No powered USB-C devices detected")
                     .font(.caption)
                     .foregroundStyle(.tertiary)
-            } else {
-                ForEach(monitor.snapshot.externalDevices) { device in
-                    HStack(spacing: 8) {
-                        Image(systemName: "cable.connector")
-                            .foregroundStyle(.secondary)
-                            .frame(width: 18)
-                        VStack(alignment: .leading, spacing: 1) {
-                            Text(device.name)
-                                .lineLimit(1)
-                            Text(device.portLabel)
-                                .font(.caption2)
-                                .foregroundStyle(.tertiary)
-                        }
-                        Spacer()
-                        Text(PowerFormatting.watts(device.watts))
-                            .monospacedDigit()
-                    }
-                    .font(.subheadline)
-                }
+                    .padding(.leading, 26)
+            }
+
+            ForEach(monitor.snapshot.externalDevices) { device in
+                ExternalDeviceRow(device: device)
             }
         }
     }
 
-    private var information: some View {
-        VStack(spacing: 9) {
+    // MARK: Information
+
+    private var informationModule: some View {
+        GlassModule {
             InformationRow(
-                symbol: "powerplug",
+                symbol: "bolt.horizontal",
                 label: "Power source",
                 value: monitor.snapshot.powerSource
             )
@@ -165,37 +168,18 @@ struct PowerPopover: View {
         }
     }
 
-    private var appPowerSection: some View {
-        VStack(alignment: .leading, spacing: 9) {
-            HStack {
-                Text("Highest app activity")
-                    .font(.headline)
-                Spacer()
-                if monitor.isScanningApps {
-                    ProgressView()
-                        .controlSize(.small)
-                }
-            }
+    // MARK: App activity
 
+    private var appActivityModule: some View {
+        GlassModule(title: "Highest app activity", isBusy: monitor.isScanningApps) {
             if monitor.topApps.isEmpty && !monitor.isScanningApps {
                 Text("No active apps detected")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
-            } else {
-                ForEach(Array(monitor.topApps.enumerated()), id: \.element.id) { index, app in
-                    HStack {
-                        Text("\(index + 1)")
-                            .font(.caption.monospacedDigit())
-                            .foregroundStyle(.secondary)
-                            .frame(width: 14, alignment: .trailing)
-                        Text(app.name)
-                            .lineLimit(1)
-                        Spacer()
-                        Text(String(format: "%.1f%% CPU", app.cpuPercent))
-                            .font(.caption.monospacedDigit())
-                            .foregroundStyle(.secondary)
-                    }
-                }
+            }
+
+            ForEach(Array(monitor.topApps.enumerated()), id: \.element.id) { index, app in
+                AppActivityRow(rank: index + 1, app: app)
             }
 
             Text("CPU activity is used as a power proxy; macOS does not publish per-app watts.")
@@ -205,6 +189,8 @@ struct PowerPopover: View {
         }
     }
 
+    // MARK: Footer
+
     private var footer: some View {
         HStack {
             Button {
@@ -212,37 +198,112 @@ struct PowerPopover: View {
             } label: {
                 Label("Refresh", systemImage: "arrow.clockwise")
             }
-            .buttonStyle(.plain)
 
             Spacer()
 
             Button("Quit WattBar") {
                 NSApplication.shared.terminate(nil)
             }
-            .buttonStyle(.plain)
         }
-        .font(.caption)
-        .foregroundStyle(.secondary)
+        .controlSize(.small)
+        .modifier(GlassButtonStyle())
+        .padding(.horizontal, 2)
     }
 }
 
-private struct MetricView: View {
+// MARK: - Building blocks
+
+/// A Control Center style platter: Liquid Glass on macOS 26+, a soft fill before that.
+private struct GlassModule<Content: View>: View {
+    var title: String?
+    var isBusy = false
+    @ViewBuilder let content: Content
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            if let title {
+                HStack {
+                    Text(title)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    if isBusy {
+                        ProgressView()
+                            .controlSize(.mini)
+                    }
+                }
+            }
+            content
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .modifier(GlassPlatter(cornerRadius: 18))
+    }
+}
+
+private struct GlassPlatter: ViewModifier {
+    let cornerRadius: CGFloat
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if #available(macOS 26.0, *) {
+            content.glassEffect(.regular, in: .rect(cornerRadius: cornerRadius))
+        } else {
+            content.background(
+                .quaternary.opacity(0.6),
+                in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+            )
+        }
+    }
+}
+
+private struct GlassButtonStyle: ViewModifier {
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if #available(macOS 26.0, *) {
+            content.buttonStyle(.glass)
+        } else {
+            content.buttonStyle(.bordered)
+        }
+    }
+}
+
+private struct LevelBar: View {
+    let fraction: Double
+    let tint: Color
+
+    var body: some View {
+        GeometryReader { proxy in
+            ZStack(alignment: .leading) {
+                Capsule()
+                    .fill(.quaternary)
+                Capsule()
+                    .fill(tint.gradient)
+                    .frame(width: max(proxy.size.width * fraction, 6))
+            }
+        }
+        .frame(height: 6)
+        .accessibilityHidden(true)
+    }
+}
+
+private struct MetricTile: View {
     let title: String
     let value: String
     let symbol: String
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 5) {
+        VStack(alignment: .leading, spacing: 4) {
             Label(title, systemImage: symbol)
                 .font(.caption)
                 .foregroundStyle(.secondary)
             Text(value)
-                .font(.title3.weight(.medium))
+                .font(.system(.title3, design: .rounded).weight(.semibold))
                 .monospacedDigit()
         }
         .padding(10)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.quaternary, in: RoundedRectangle(cornerRadius: 9))
+        .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 }
 
@@ -260,7 +321,50 @@ private struct InformationRow: View {
                 .foregroundStyle(.secondary)
             Spacer(minLength: 12)
             Text(value)
+                .monospacedDigit()
                 .lineLimit(1)
+        }
+        .font(.subheadline)
+    }
+}
+
+private struct ExternalDeviceRow: View {
+    let device: ExternalPowerDevice
+
+    var body: some View {
+        HStack(spacing: 8) {
+            VStack(alignment: .leading, spacing: 1) {
+                Text(device.name)
+                    .lineLimit(1)
+                Text(device.portLabel)
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+            }
+            Spacer()
+            Text(PowerFormatting.watts(device.watts))
+                .monospacedDigit()
+        }
+        .font(.subheadline)
+        .padding(.leading, 26)
+    }
+}
+
+private struct AppActivityRow: View {
+    let rank: Int
+    let app: AppPowerUse
+
+    var body: some View {
+        HStack {
+            Text("\(rank)")
+                .font(.caption.monospacedDigit())
+                .foregroundStyle(.secondary)
+                .frame(width: 14, alignment: .trailing)
+            Text(app.name)
+                .lineLimit(1)
+            Spacer()
+            Text(String(format: "%.1f%% CPU", app.cpuPercent))
+                .font(.caption.monospacedDigit())
+                .foregroundStyle(.secondary)
         }
         .font(.subheadline)
     }

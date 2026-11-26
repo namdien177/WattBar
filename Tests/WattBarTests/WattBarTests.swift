@@ -100,4 +100,138 @@ final class WattBarTests: XCTestCase {
             AppPowerUse(name: "Slack", cpuPercent: 8.2)
         ])
     }
+
+    func testFullBatteryShowsFullSymbolEvenWhenAssisting() {
+        let snapshot = makeSnapshot(percentage: 100, isConnected: true, batteryPowerWatts: -24.6)
+
+        XCTAssertTrue(snapshot.isBatteryAssisting)
+        XCTAssertEqual(snapshot.menuBarSymbol, "battery.100percent")
+    }
+
+    func testBatterySymbolFollowsLevel() {
+        let symbols = [100, 80, 50, 20, 5].map { makeSnapshot(percentage: $0).menuBarSymbol }
+
+        XCTAssertEqual(symbols, [
+            "battery.100percent",
+            "battery.75percent",
+            "battery.50percent",
+            "battery.25percent",
+            "battery.0percent"
+        ])
+    }
+
+    func testChargingShowsBoltSymbol() {
+        let snapshot = makeSnapshot(percentage: 40, isConnected: true, batteryPowerWatts: 30)
+
+        XCTAssertEqual(snapshot.menuBarSymbol, "battery.100percent.bolt")
+    }
+
+    func testTimeToEmptyIsReadOnlyOnBattery() {
+        let onBattery = PowerReader.makeSnapshot(
+            registry: [:],
+            powerSource: ["Current Capacity": 70, "Max Capacity": 100, "Time to Empty": 310],
+            adapter: nil,
+            portMetadata: .empty
+        )
+        let calculating = PowerReader.makeSnapshot(
+            registry: [:],
+            powerSource: ["Current Capacity": 70, "Max Capacity": 100, "Time to Empty": -1],
+            adapter: nil,
+            portMetadata: .empty
+        )
+
+        XCTAssertEqual(onBattery.minutesToEmpty, 310)
+        XCTAssertNil(calculating.minutesToEmpty)
+    }
+
+    func testFullyChargedComesFromPowerSourceOrRegistry() {
+        let fromPowerSource = PowerReader.makeSnapshot(
+            registry: ["ExternalConnected": true],
+            powerSource: ["Current Capacity": 100, "Max Capacity": 100, "Is Charged": true],
+            adapter: nil,
+            portMetadata: .empty
+        )
+        let fromRegistry = PowerReader.makeSnapshot(
+            registry: ["ExternalConnected": true, "FullyCharged": true],
+            powerSource: ["Current Capacity": 100, "Max Capacity": 100],
+            adapter: nil,
+            portMetadata: .empty
+        )
+
+        XCTAssertTrue(fromPowerSource.isFullyCharged)
+        XCTAssertTrue(fromRegistry.isFullyCharged)
+    }
+
+    func testDetectsPlugUnplugAndFull() {
+        let onBattery = makeSnapshot(percentage: 60)
+        let plugged = makeSnapshot(percentage: 60, isConnected: true, batteryPowerWatts: 30)
+        let full = makeSnapshot(percentage: 100, isConnected: true, isFullyCharged: true)
+
+        XCTAssertEqual(PowerEventDetector.event(from: onBattery, to: plugged), .pluggedIn)
+        XCTAssertEqual(PowerEventDetector.event(from: plugged, to: onBattery), .unplugged)
+        XCTAssertEqual(PowerEventDetector.event(from: plugged, to: full), .fullyCharged)
+        XCTAssertNil(PowerEventDetector.event(from: full, to: full))
+        XCTAssertNil(PowerEventDetector.event(from: onBattery, to: onBattery))
+    }
+
+    func testPluggedInNotificationWaitsForTimeToFull() {
+        let estimating = makeSnapshot(percentage: 64, isConnected: true, batteryPowerWatts: 30)
+        let estimated = makeSnapshot(percentage: 64, isConnected: true, batteryPowerWatts: 30, minutesToFull: 80)
+
+        XCTAssertFalse(PowerNotificationText.hasEstimate(for: .pluggedIn, snapshot: estimating))
+        XCTAssertTrue(PowerNotificationText.hasEstimate(for: .pluggedIn, snapshot: estimated))
+        XCTAssertEqual(
+            PowerNotificationText.content(for: .pluggedIn, snapshot: estimated),
+            PowerNotificationContent(title: "Plugged in", body: "64% · Full in 1h 20m")
+        )
+        XCTAssertEqual(
+            PowerNotificationText.content(for: .pluggedIn, snapshot: estimating).body,
+            "64% · Estimating time to full"
+        )
+    }
+
+    func testUnpluggedNotificationShowsTimeLeft() {
+        let snapshot = makeSnapshot(percentage: 82, minutesToEmpty: 310)
+
+        XCTAssertEqual(
+            PowerNotificationText.content(for: .unplugged, snapshot: snapshot),
+            PowerNotificationContent(title: "On battery", body: "82% · About 5h 10m left")
+        )
+    }
+
+    func testFullyChargedNotificationNamesTheSource() {
+        let snapshot = makeSnapshot(percentage: 100, isConnected: true, isFullyCharged: true)
+
+        XCTAssertEqual(
+            PowerNotificationText.content(for: .fullyCharged, snapshot: snapshot),
+            PowerNotificationContent(title: "Fully charged", body: "100% · on 100 W USB-C")
+        )
+    }
+
+    private func makeSnapshot(
+        percentage: Int,
+        isConnected: Bool = false,
+        batteryPowerWatts: Double? = nil,
+        minutesToFull: Int? = nil,
+        minutesToEmpty: Int? = nil,
+        isFullyCharged: Bool = false
+    ) -> PowerSnapshot {
+        PowerSnapshot(
+            percentage: percentage,
+            isCharging: (batteryPowerWatts ?? 0) > 0.1,
+            isConnected: isConnected,
+            batteryPowerWatts: batteryPowerWatts,
+            inputWatts: nil,
+            macPowerWatts: nil,
+            externalDevices: [],
+            hasDetailedPowerTelemetry: true,
+            minutesToFull: minutesToFull,
+            minutesToEmpty: minutesToEmpty,
+            isFullyCharged: isFullyCharged,
+            powerSource: "100 W USB-C",
+            adapterRatingWatts: 100,
+            cycleCount: 138,
+            measuredAt: Date()
+        )
+    }
 }

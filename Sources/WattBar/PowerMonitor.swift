@@ -1,4 +1,5 @@
 import Foundation
+import IOKit.ps
 
 @MainActor
 final class PowerMonitor: ObservableObject {
@@ -11,9 +12,12 @@ final class PowerMonitor: ObservableObject {
     private var detailTick = 0
     private var portMetadata = PortMetadata.empty
     private var isScanningPorts = false
+    private let notifier = PowerNotifier()
+    private var powerSourceRunLoopSource: CFRunLoopSource?
 
     init() {
         refreshBattery()
+        startPowerSourceNotifications()
         summaryTimer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
             Task { @MainActor in
                 self?.refreshBattery()
@@ -56,6 +60,24 @@ final class PowerMonitor: ObservableObject {
 
     private func refreshBattery() {
         snapshot = PowerReader.read(portMetadata: portMetadata)
+        notifier.observe(snapshot)
+    }
+
+    /// macOS calls back on plug, unplug and level changes, so events show up immediately.
+    private func startPowerSourceNotifications() {
+        let context = Unmanaged.passUnretained(self).toOpaque()
+        let callback: IOPowerSourceCallbackType = { context in
+            guard let context else { return }
+            let monitor = Unmanaged<PowerMonitor>.fromOpaque(context).takeUnretainedValue()
+            MainActor.assumeIsolated {
+                monitor.refreshBattery()
+            }
+        }
+        guard let source = IOPSNotificationCreateRunLoopSource(callback, context)?.takeRetainedValue() else {
+            return
+        }
+        CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
+        powerSourceRunLoopSource = source
     }
 
     private func refreshPortMetadata() {

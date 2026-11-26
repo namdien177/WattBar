@@ -19,6 +19,8 @@ struct PowerSnapshot: Sendable, Equatable {
     let externalDevices: [ExternalPowerDevice]
     let hasDetailedPowerTelemetry: Bool
     let minutesToFull: Int?
+    let minutesToEmpty: Int?
+    let isFullyCharged: Bool
     let powerSource: String
     let adapterRatingWatts: Int?
     let cycleCount: Int?
@@ -34,6 +36,8 @@ struct PowerSnapshot: Sendable, Equatable {
         externalDevices: [],
         hasDetailedPowerTelemetry: false,
         minutesToFull: nil,
+        minutesToEmpty: nil,
+        isFullyCharged: false,
         powerSource: "Checking…",
         adapterRatingWatts: nil,
         cycleCount: nil,
@@ -54,16 +58,27 @@ struct PowerSnapshot: Sendable, Equatable {
     }
 
     var menuBarSymbol: String {
+        // Charging shows the bolt so the state reads at a glance.
         if isCharging {
-            return "bolt.fill"
+            return "battery.100percent.bolt"
         }
-        if isBatteryAssisting {
+        return batteryLevelSymbol
+    }
+
+    var batteryLevelSymbol: String {
+        if percentage >= 88 {
+            return "battery.100percent"
+        }
+        if percentage >= 63 {
+            return "battery.75percent"
+        }
+        if percentage >= 38 {
             return "battery.50percent"
         }
-        if isConnected {
-            return "powerplug.fill"
+        if percentage >= 13 {
+            return "battery.25percent"
         }
-        return "battery.50percent"
+        return "battery.0percent"
     }
 
     var accessibilitySummary: String {

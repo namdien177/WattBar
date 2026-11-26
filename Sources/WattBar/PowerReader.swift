@@ -59,8 +59,16 @@ enum PowerReader {
         let macPowerWatts = systemLoadWatts.map { max($0 - externalPowerWatts, 0) }
         let inputWatts = doubleValue(telemetry?["SystemPowerIn"]).map { $0 / 1_000 }
 
-        let rawMinutes = intValue(powerSource?["Time to Full Charge"])
-        let minutesToFull = isCharging && (rawMinutes ?? 0) > 0 ? rawMinutes : nil
+        // Each estimate only means something in its own power state.
+        var minutesToFull: Int?
+        if isCharging {
+            minutesToFull = positiveMinutes(intValue(powerSource?["Time to Full Charge"]))
+        }
+        var minutesToEmpty: Int?
+        if !isConnected {
+            minutesToEmpty = positiveMinutes(intValue(powerSource?["Time to Empty"]))
+        }
+        let isFullyCharged = boolValue(powerSource?["Is Charged"]) || boolValue(registry?["FullyCharged"])
         let adapterWatts = intValue(adapter?["Watts"])
 
         return PowerSnapshot(
@@ -73,6 +81,8 @@ enum PowerReader {
             externalDevices: externalDevices,
             hasDetailedPowerTelemetry: telemetry != nil,
             minutesToFull: minutesToFull,
+            minutesToEmpty: minutesToEmpty,
+            isFullyCharged: isFullyCharged,
             powerSource: sourceName(
                 isConnected: isConnected,
                 adapter: adapter,
@@ -97,6 +107,12 @@ enum PowerReader {
             return nil
         }
         return voltageMillivolts * currentMilliamps / 1_000_000
+    }
+
+    private static func positiveMinutes(_ minutes: Int?) -> Int? {
+        // macOS reports -1 (or 0) while it is still calculating.
+        guard let minutes, minutes > 0 else { return nil }
+        return minutes
     }
 
     private static func batteryRegistryProperties() -> [String: Any]? {
