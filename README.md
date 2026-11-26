@@ -24,6 +24,8 @@ Scripts/build-app.sh
 open dist/WattBar.app
 ```
 
+The app icon lives in `Resources/AppIcon.png` (1024x1024, SVG source in `Resources/AppIcon.svg`). After changing it, run `Scripts/make-icon.sh` to regenerate `Resources/AppIcon.icns`.
+
 The app is local-only and requires no permissions. To launch it automatically, add `WattBar.app` under **System Settings → General → Login Items**.
 
 ## Efficiency

@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="surface" x1="0" y1="0" x2="0" y2="1">
+      <stop stop-color="#1D4B48"/>
+      <stop offset="1" stop-color="#18403E"/>
+    </linearGradient>
+    <linearGradient id="track-rim" x1="0" y1="0" x2="0" y2="1">
+      <stop stop-color="#D4FFF0" stop-opacity=".40"/>
+      <stop offset=".6" stop-color="#D4FFF0" stop-opacity=".04"/>
+      <stop offset="1" stop-color="#133835" stop-opacity=".64"/>
+    </linearGradient>
+    <linearGradient id="active-rim" x1="0" y1="0" x2="0" y2="1">
+      <stop stop-color="#EFFFF0" stop-opacity=".9"/>
+      <stop offset=".58" stop-color="#D8FFE8" stop-opacity=".22"/>
+      <stop offset="1" stop-color="#37795C" stop-opacity=".7"/>
+    </linearGradient>
+    <linearGradient id="bolt-rim" x1="0" y1="0" x2="0" y2="1">
+      <stop stop-color="#FFFFFF"/>
+      <stop offset=".55" stop-color="#FFFFFF" stop-opacity=".1"/>
+      <stop offset="1" stop-color="#B0D6BB" stop-opacity=".8"/>
+    </linearGradient>
+  </defs>
+
+  <!-- macOS icon body, with a restrained two-tone surface. -->
+  <path d="M 360 100 H 664
+           C 769 100 823 108 869 155
+           C 916 201 924 255 924 360
+           V 664 C 924 769 916 823 869 869
+           C 823 916 769 924 664 924
+           H 360 C 255 924 201 916 155 869
+           C 108 823 100 769 100 664
+           V 360 C 100 255 108 201 155 155
+           C 201 108 255 100 360 100 Z"
+        fill="url(#surface)"/>
+
+  <!-- Translucent meter track with a 270-degree sweep and round caps. -->
+  <path d="M 289.97 734.03
+           A 314 314 0 1 1 734.03 734.03
+           A 44 44 0 0 1 671.81 671.81
+           A 226 226 0 1 0 352.19 671.81
+           A 44 44 0 0 1 289.97 734.03 Z"
+        fill="#8FBDAD" fill-opacity=".60"
+        stroke="url(#track-rim)" stroke-width="3"/>
+
+  <!-- The active meter sits above the track, with fine glass edges. -->
+  <path d="M 289.97 734.03
+           A 314 314 0 1 1 821.23 457.47
+           A 44 44 0 0 1 734.56 472.76
+           A 226 226 0 1 0 352.19 671.81
+           A 44 44 0 0 1 289.97 734.03 Z"
+        fill="#A7F4BB" fill-opacity=".94"
+        stroke="url(#active-rim)" stroke-width="4"/>
+
+  <!-- A broad, lightly rounded bolt preserves the silhouette at menu-bar sizes. -->
+  <path d="M 568 327
+           Q 576 319 573 332 L 539 465 H 651
+           Q 662 465 655 474 L 457 690
+           Q 448 699 451 687 L 485 548 H 373
+           Q 362 548 370 539 Z"
+        fill="#F1FFF0" stroke="url(#bolt-rim)" stroke-width="3"
+        stroke-linejoin="round"/>
+</svg>
