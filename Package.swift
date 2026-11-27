@@ -14,7 +14,8 @@ let package = Package(
         .executableTarget(
             name: "WattBar",
             linkerSettings: [
-                .linkedFramework("IOKit")
+                .linkedFramework("IOKit"),
+                .linkedFramework("IOBluetooth")
             ]
         ),
         .testTarget(

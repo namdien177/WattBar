@@ -3,6 +3,8 @@ import Foundation
 struct AppPowerUse: Identifiable, Sendable, Equatable {
     let name: String
     let cpuPercent: Double
+    /// The `.app` bundle the process runs from, used for the app icon.
+    let bundlePath: String
 
     var id: String { name }
 }
@@ -30,6 +32,7 @@ enum ProcessReader {
 
     static func parse(_ output: String, limit: Int = 3) -> [AppPowerUse] {
         var totals: [String: Double] = [:]
+        var bundlePaths: [String: String] = [:]
 
         for line in output.split(whereSeparator: \.isNewline) {
             let columns = line.split(maxSplits: 2, whereSeparator: \.isWhitespace)
@@ -37,16 +40,20 @@ enum ProcessReader {
                 columns.count == 3,
                 let cpuPercent = Double(columns[1]),
                 cpuPercent > 0,
-                let appName = appName(from: String(columns[2])),
-                appName != "WattBar"
+                let appBundle = bundlePath(from: String(columns[2])),
+                appBundle.name != "WattBar"
             else {
                 continue
             }
-            totals[appName, default: 0] += cpuPercent
+            totals[appBundle.name, default: 0] += cpuPercent
+            // Every process of one app resolves to the same outer bundle.
+            if bundlePaths[appBundle.name] == nil {
+                bundlePaths[appBundle.name] = appBundle.path
+            }
         }
 
         return totals
-            .map { AppPowerUse(name: $0.key, cpuPercent: $0.value) }
+            .map { AppPowerUse(name: $0.key, cpuPercent: $0.value, bundlePath: bundlePaths[$0.key] ?? "") }
             .sorted {
                 if $0.cpuPercent == $1.cpuPercent {
                     return $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
@@ -57,11 +64,13 @@ enum ProcessReader {
             .map { $0 }
     }
 
-    private static func appName(from command: String) -> String? {
-        let components = command.split(separator: "/")
-        guard let appComponent = components.first(where: { $0.hasSuffix(".app") }) else {
+    private static func bundlePath(from command: String) -> (name: String, path: String)? {
+        let components = command.split(separator: "/", omittingEmptySubsequences: false)
+        // Only processes inside an .app bundle count as apps.
+        guard let appIndex = components.firstIndex(where: { $0.hasSuffix(".app") }) else {
             return nil
         }
-        return String(appComponent.dropLast(4))
+        let path = components[...appIndex].joined(separator: "/")
+        return (String(components[appIndex].dropLast(4)), path)
     }
 }

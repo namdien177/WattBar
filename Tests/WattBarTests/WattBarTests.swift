@@ -96,8 +96,8 @@ final class WattBarTests: XCTestCase {
         """
 
         XCTAssertEqual(ProcessReader.parse(output), [
-            AppPowerUse(name: "Google Chrome", cpuPercent: 16.5),
-            AppPowerUse(name: "Slack", cpuPercent: 8.2)
+            AppPowerUse(name: "Google Chrome", cpuPercent: 16.5, bundlePath: "/Applications/Google Chrome.app"),
+            AppPowerUse(name: "Slack", cpuPercent: 8.2, bundlePath: "/Applications/Slack.app")
         ])
     }
 

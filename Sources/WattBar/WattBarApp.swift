@@ -1,21 +1,23 @@
-import SwiftUI
+import AppKit
 
+/// Plain AppKit entry point: a SwiftUI `App` needs a scene, and an empty Settings scene shows a stray window.
 @main
-@MainActor
-struct WattBarApp: App {
-    @StateObject private var monitor = PowerMonitor()
+enum WattBarApp {
+    @MainActor
+    static func main() {
+        let application = NSApplication.shared
+        let delegate = AppDelegate()
+        application.delegate = delegate
+        application.setActivationPolicy(.accessory)
+        application.run()
+    }
+}
 
-    var body: some Scene {
-        MenuBarExtra {
-            PowerPopover(monitor: monitor)
-        } label: {
-            HStack(spacing: 3) {
-                Image(systemName: monitor.snapshot.menuBarSymbol)
-                Text("\(monitor.snapshot.percentage)%")
-                    .monospacedDigit()
-            }
-            .accessibilityLabel(monitor.snapshot.accessibilitySummary)
-        }
-        .menuBarExtraStyle(.window)
+@MainActor
+final class AppDelegate: NSObject, NSApplicationDelegate {
+    private var statusItemController: StatusItemController?
+
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        statusItemController = StatusItemController(monitor: PowerMonitor())
     }
 }

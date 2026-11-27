@@ -125,3 +125,77 @@ enum PowerFormatting {
         return "\(hours)h \(remainingMinutes)m"
     }
 }
+
+/// One consumer in the power flow bar: the Mac, the charging battery or a powered USB-C device.
+struct PowerFlowSegment: Identifiable, Sendable, Equatable {
+    enum Kind: Sendable, Equatable {
+        case mac
+        case battery
+        case device(port: Int)
+    }
+
+    let kind: Kind
+    let label: String
+    let detail: String?
+    let watts: Double
+
+    var id: String {
+        switch kind {
+        case .mac:
+            return "mac"
+        case .battery:
+            return "battery"
+        case .device(let port):
+            return "device-\(port)"
+        }
+    }
+}
+
+extension PowerSnapshot {
+    /// Where the power goes, in a fixed order so colours don't jump between reads.
+    var powerConsumers: [PowerFlowSegment] {
+        var segments: [PowerFlowSegment] = []
+        if let macPowerWatts {
+            segments.append(PowerFlowSegment(kind: .mac, label: "Mac", detail: nil, watts: macPowerWatts))
+        }
+        if let chargingWatts {
+            segments.append(PowerFlowSegment(kind: .battery, label: "Battery charging", detail: nil, watts: chargingWatts))
+        }
+        for device in externalDevices {
+            segments.append(
+                PowerFlowSegment(
+                    kind: .device(port: device.portNumber),
+                    label: device.name,
+                    detail: device.portLabel,
+                    watts: device.watts
+                )
+            )
+        }
+        return segments
+    }
+
+    /// Watts the battery is supplying, whether on battery or helping a small adapter.
+    var batteryDischargeWatts: Double? {
+        guard let batteryPowerWatts, batteryPowerWatts < -0.1 else { return nil }
+        return -batteryPowerWatts
+    }
+
+    /// Short summary of where power comes from, shown beside the power flow title.
+    var powerSourceSummary: String? {
+        // On adapter power the measured input is the headline.
+        if isConnected, let inputWatts {
+            return "\(PowerFormatting.watts(inputWatts)) in"
+        }
+        // On battery the battery is the only source.
+        if let batteryDischargeWatts {
+            return "\(PowerFormatting.watts(batteryDischargeWatts)) from battery"
+        }
+        return nil
+    }
+
+    /// Source facts shown under the level bar, such as "45 W MagSafe 3 · 124 cycles".
+    var sourceFacts: String {
+        guard let cycleCount else { return powerSource }
+        return "\(powerSource) · \(cycleCount) cycles"
+    }
+}

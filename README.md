@@ -1,6 +1,8 @@
 # WattBar
 
-A small native macOS menu-bar app showing battery percentage, measured power flow, charging state, estimated time to full charge, power source, powered USB-C devices, cycle count, and the three most active apps.
+A small native macOS menu-bar app showing battery percentage, measured power flow, charging state, estimated time to full charge, power source, powered USB-C devices, cycle count, connected wireless device batteries, and the three most active apps.
+
+Wireless devices (keyboards, mice, headsets, AirPods) appear as battery rings in the popover. Hover a Bluetooth device and click the x, or right-click it, to disconnect it. WattBar sends a notification when a device drops to the level macOS warns at (usually 20%).
 
 ## Install or update
 
@@ -26,13 +28,14 @@ open dist/WattBar.app
 
 The app icon lives in `Resources/AppIcon.png` (1024x1024, SVG source in `Resources/AppIcon.svg`). After changing it, run `Scripts/make-icon.sh` to regenerate `Resources/AppIcon.icns`.
 
-The app is local-only and requires no permissions. To launch it automatically, add `WattBar.app` under **System Settings → General → Login Items**.
+The app is local-only. macOS asks for Bluetooth access the first time you disconnect a device; nothing else needs a permission. To launch it automatically, add `WattBar.app` under **System Settings → General → Login Items**.
 
 ## Efficiency
 
 - Battery data comes directly from IOKit; no shell process is used for routine battery updates.
 - The menu-bar summary refreshes every 30 seconds with a five-second timer tolerance.
 - Device names and app activity are sampled only while the popover is open, once every 30 seconds.
+- Wireless device batteries come from the same in-process source `pmset -g accps` uses, read every 30 seconds (every 10 while the popover is open) so low-battery alerts arrive with the popover closed. That source is not a public API; if a future macOS removes it, the Devices section hides.
 - On supported Apple Silicon Macs, WattBar reads actual adapter input, signed battery flow, Mac consumption, and per-port USB-C output from power telemetry.
 - Undocumented detailed telemetry may be unavailable on other hardware or future macOS versions; WattBar falls back to battery voltage and current.
 - Per-app wattage is not available through a public macOS API, so app activity is ranked using aggregate CPU usage as a transparent power proxy.

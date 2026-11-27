@@ -26,6 +26,8 @@
     <string>14.0</string>
     <key>LSUIElement</key>
     <true/>
+    <key>NSBluetoothAlwaysUsageDescription</key>
+    <string>WattBar uses Bluetooth only when you choose Disconnect on a device.</string>
     <key>NSHighResolutionCapable</key>
     <true/>
 </dict>

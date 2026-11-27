@@ -98,6 +98,46 @@ enum PowerNotificationText {
     }
 }
 
+struct AccessoryLowBatteryResult: Equatable, Sendable {
+    let toAnnounce: [AccessoryBattery]
+    let announcedIDs: Set<String>
+}
+
+enum AccessoryLowBatteryDetector {
+    /// Announces each accessory battery once when it is low; it can announce again after a charge.
+    static func check(
+        _ accessories: [AccessoryBattery],
+        announcedIDs: Set<String>
+    ) -> AccessoryLowBatteryResult {
+        var toAnnounce: [AccessoryBattery] = []
+        var stillAnnounced = announcedIDs
+
+        for accessory in accessories {
+            // Charging or back above the warning level: the next low reading is news again.
+            if accessory.isCharging || !accessory.isLow {
+                stillAnnounced.remove(accessory.id)
+                continue
+            }
+            // Already told the user about this battery.
+            if stillAnnounced.contains(accessory.id) {
+                continue
+            }
+            toAnnounce.append(accessory)
+            stillAnnounced.insert(accessory.id)
+        }
+
+        // A device that dropped off keeps its entry, so a flaky reconnect while still low stays quiet.
+        return AccessoryLowBatteryResult(toAnnounce: toAnnounce, announcedIDs: stillAnnounced)
+    }
+
+    static func content(for accessory: AccessoryBattery) -> PowerNotificationContent {
+        PowerNotificationContent(
+            title: "\(accessory.displayName) battery low",
+            body: "\(accessory.percentage)% left"
+        )
+    }
+}
+
 @MainActor
 final class PowerNotifier {
     private struct PendingNotification {
@@ -108,6 +148,8 @@ final class PowerNotifier {
     /// How long to wait for macOS to publish a time estimate before sending without one.
     private static let estimateWait: TimeInterval = 60
     private static let requestIdentifier = "com.donam.WattBar.power-event"
+    /// One notification per accessory battery, so two low devices don't replace each other.
+    private static let accessoryRequestPrefix = "com.donam.WattBar.accessory-low"
 
     private let center = UNUserNotificationCenter.current()
     private let presenter = NotificationPresenter()
@@ -115,6 +157,7 @@ final class PowerNotifier {
     private var pending: PendingNotification?
     /// macOS tops a full battery up again while on AC; announce full once per connection.
     private var hasAnnouncedFull = false
+    private var announcedAccessoryIDs: Set<String> = []
 
     init() {
         center.delegate = presenter
@@ -164,14 +207,30 @@ final class PowerNotifier {
         send(PowerNotificationText.content(for: pending.event, snapshot: snapshot))
     }
 
+    func observeAccessories(_ accessories: [AccessoryBattery]) {
+        let result = AccessoryLowBatteryDetector.check(accessories, announcedIDs: announcedAccessoryIDs)
+        announcedAccessoryIDs = result.announcedIDs
+
+        for accessory in result.toAnnounce {
+            send(
+                AccessoryLowBatteryDetector.content(for: accessory),
+                identifier: "\(Self.accessoryRequestPrefix).\(accessory.id)"
+            )
+        }
+    }
+
     private func send(_ text: PowerNotificationContent) {
+        send(text, identifier: Self.requestIdentifier)
+    }
+
+    private func send(_ text: PowerNotificationContent, identifier: String) {
         let content = UNMutableNotificationContent()
         content.title = text.title
         content.body = text.body
         content.sound = .default
 
         let request = UNNotificationRequest(
-            identifier: Self.requestIdentifier,
+            identifier: identifier,
             content: content,
             trigger: nil
         )
